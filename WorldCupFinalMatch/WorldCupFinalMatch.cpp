@@ -1,59 +1,16 @@
-﻿/*
-
-Начало - 11.12.2024
-
-Сделана начальная структра проекта 
-
-
-Требования
-
-3. Составить программу «Финальная часть Чемпионата мира». Структура
-исходных данных: стадия чемпионата (1/8, четвертьфинал, полуфинал, финал),
-название команды 1, название команды 2, количество мячей, забитое 1 и 2 ко-
-10
-мандой соответственно, фамилии игроков забивших голы (по командам соответственно). Сформировать список команд, отсортированный по количеству
-мячей, забитых на чемпионате. Вывести десятку лучших бомбардиров финальной части чемпионата (с указанием страны). Вывести список призеров чемпионата. Предусмотреть защиту от некорректного ввода (т.е. команда, проигравшая
-в 1/8 финала, не может играть в последующих турах и т.п.).
-
-Таблица 1 - Требования к курсовой работе на тему «Формирование текстового файла.
-Требования
-1. программа должна иметь модульную структуру, т.е. должна состоять
-из отдельных функций
-2. формирование файла (запись введенных данных в файл);
-3. редактирование данных (добавление, удаление, изменение сведений);
-4. использование отдельного диалога для ввода и проверка корректности
-всех входных данных;
-5. вывод исходных данных (просмотр всех сведений) и реализация всех
-указанных в задании действий по сортировке и выборке данных;
-6. использование главного и контекстного меню;
-7. результаты расчетов и поиска должны быть оформлены в соответствующем виде (с использованием форматированного вывода);
-8. наличие в главном меню раздела «О программе», в котором указать
-версию программного продукта, дату внесения последних изменений в программе и координаты автора;
-9. наличие в главном меню раздела «Руководство пользователя (Справка)», содержание которого загружается из текстового файла;
-10. наличие в главном меню раздела «Задание», содержащего постановку
-задачи.
-11. корректная обработка диалога работы с файлами (например, запрет открытия несуществующего файла, либо запрос на перезапись уже существующего файла, настройка фильтров и др.);
-12. проверка сохранения сведений в файле при выходе из программы;
-13. сортировка выводимой информации по любому из полей записи (критерий сортировки указывается в меню), используя одну процедуру сортировки
-для всех пунктов меню;
-
-
-by MMXXXII - https://github.com/MMXXXII
-
-
-*/
-
-
-#include <iostream>
+﻿#include <iostream>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <algorithm>
 #include <sstream>
-#include <iomanip>
 #include <windows.h>
+#include <filesystem>
+#include <regex>
+#include <iomanip>
 
 using namespace std;
+namespace fs = std::filesystem;
 
 // Структуры для хранения информации о матчах и игроках
 struct Player {
@@ -77,68 +34,210 @@ struct Match {
         : stage(s), team1(t1), team2(t2), goals1(g1), goals2(g2) {}
 };
 
+// Функция для проверки корректности имени команды с использованием регулярных выражений
+bool isValidTeamName(const string& teamName) {
+    // Регулярное выражение: первая буква заглавная, все остальные буквы могут быть как заглавными, так и строчными (включая кириллицу)
+    regex pattern("^[А-ЯЁ][а-яёA-Za-z]*$");
+
+    // Проверяем строку с регулярным выражением
+    return regex_match(teamName, pattern);
+}
+
+// Функция для проверки корректности страны
+bool isValidCountryName(const string& countryName) {
+    regex pattern("^[А-ЯЁ][а-яёA-Za-z]*$");
+    return regex_match(countryName, pattern);
+}
+
+// Функция для проверки корректности фамилии футболиста
+bool isValidPlayerName(const string& playerName) {
+    regex pattern("^[А-ЯЁ][а-яёA-Za-z]*$");
+    return regex_match(playerName, pattern);
+}
+
+
+// Функция для проверки корректности числа голов
+bool isValidGoalsInput(int& goals) {
+    while (true) {
+        string input;
+        cout << "Введите количество мячей, забитых командой (от 0 до 50): ";
+        cin >> input;
+
+        // Проверка, что введенная строка состоит только из цифр
+        if (input.empty() || input.find_first_not_of("0123456789") != string::npos) {
+            cout << "Ошибка: введено некорректное значение! Введите только цифры.\n";
+            continue;
+        }
+
+        // Преобразуем строку в число
+        goals = stoi(input);
+
+        if (goals < 0 || goals >= 50) {  // Проверка, что количество голов в пределах допустимого диапазона
+            cout << "Ошибка: количество голов должно быть от 0 до 50. Попробуйте снова.\n";
+        }
+        else {
+            return true;  // Ввод корректен
+        }
+    }
+}
+// Функция для ввода фамилий игроков
+void inputPlayersData(vector<Player>& players, int goals) {
+    string playerName, playerCountry;
+    int total_goals = 0;
+    int player_goals;
+
+    cout << "Введите фамилии игроков, забивших голы для команды:\n";
+    while (total_goals < goals) {
+        cout << "Футболист №" << players.size() + 1 << ":\n";
+
+        // Проверка имени игрока
+        while (true) {
+            cout << "Фамилия игрока: ";
+            cin >> playerName;
+
+            // Проверка корректности фамилии
+            if (!isValidPlayerName(playerName)) {
+                cout << "Ошибка: Фамилия игрока должна начинаться с заглавной буквы и содержать только буквы. Попробуйте снова.\n";
+            }
+            else {
+                break;
+            }
+        }
+
+        cout << "Страна игрока: ";
+        cin >> playerCountry;
+
+        // Проверка на корректность страны
+        while (!isValidCountryName(playerCountry)) {
+            cout << "Ошибка: Страна должна начинаться с заглавной буквы и содержать только буквы. Попробуйте снова.\n";
+            cout << "Страна игрока: ";
+            cin >> playerCountry;
+        }
+
+        while (true) {
+            cout << "Количество голов: ";
+            if (!(cin >> player_goals)) {
+                cout << "Ошибка: введите корректное количество голов.\n";
+                cin.clear();
+                cin.ignore();
+                continue;
+            }
+
+            if (total_goals + player_goals > goals) {
+                cout << "Ошибка: количество голов у игроков превышает количество голов команды! Попробуйте снова.\n";
+            }
+            else {
+                break;
+            }
+        }
+
+        players.push_back(Player(playerName, playerCountry, player_goals));
+        total_goals += player_goals;
+    }
+
+    // Проверка, что количество голов игроков совпадает с количеством голов команды
+    if (total_goals != goals) {
+        cout << "Ошибка: количество голов игроков не совпадает с количеством голов команды. Попробуйте снова.\n";
+        players.clear();
+    }
+}
+
+// Функция для ввода данных о команде
 void inputTeamData(string& teamName, int& goals, vector<Player>& players) {
     string player_name, player_country;
     int player_goals;
     int total_goals = 0;
 
-    cout << "Введите название команды: ";
-    cin >> teamName;
-    cout << "Введите количество мячей, забитых командой: ";
-    cin >> goals;
+    // Ввод имени команды с проверкой
+    while (true) {
+        cout << "Введите название команды: ";
+        cin >> teamName;
 
-    cout << "Введите фамилии игроков, забивших голы для команды " << teamName << " (для завершения введите 'end'):\n";
-
-    // Ввод данных игроков
-    int player_number = 1;  // Нумерация игроков
-    while (total_goals < goals) {  // Цикл продолжается, пока не введено достаточно голов
-        cout << "Футболист №" << player_number << ":\n";  // Нумерация футболистов
-        cout << "Фамилия игрока: ";
-        cin >> player_name;
-
-        // Завершаем ввод, если введено 'end'
-        if (player_name == "end") {
-            if (total_goals == goals) {
-                break;  // Если количество голов совпадает, завершить ввод
-            }
-            else {
-                cout << "Ошибка: количество голов игроков не совпадает с количеством голов команды. Попробуйте снова.\n";
-                players.clear();  // Очистим введенные данные, чтобы начать ввод заново
-                return;  // Завершаем выполнение функции
-            }
+        if (isValidTeamName(teamName)) {
+            break;
         }
-
-        cout << "Страна игрока: ";
-        cin >> player_country;
-
-        // Запрос количества голов
-        while (true) {
-            cout << "Количество голов: ";
-            cin >> player_goals;
-
-            // Проверка, не превышает ли количество голов, введенное игроками, количество голов команды
-            if (total_goals + player_goals > goals) {
-                cout << "Ошибка: количество голов у игроков превышает количество голов команды! Попробуйте снова.\n";
-            }
-            else {
-                break;  // Выход из цикла, если количество голов корректно
-            }
+        else {
+            cout << "Ошибка: Название команды должно начинаться с заглавной буквы и содержать только буквы. Попробуйте снова.\n";
         }
-
-        // Добавляем игрока в список
-        players.push_back(Player(player_name, player_country, player_goals));
-        total_goals += player_goals;
-        player_number++;  // Увеличиваем номер игрока
     }
 
-    // Финальная проверка на правильность данных
-    if (total_goals != goals) {
+    // Ввод количества голов с проверкой
+    while (!isValidGoalsInput(goals)) {}
+
+    // Ввод данных о игроках
+    inputPlayersData(players, goals);
+
+    // Проверка, что количество голов игроков совпадает с количеством голов команды
+    int total_player_goals = 0;
+    for (const auto& player : players) {
+        total_player_goals += player.goals;
+    }
+
+    if (total_player_goals != goals) {
         cout << "Ошибка: количество голов игроков не совпадает с количеством голов команды. Попробуйте снова.\n";
-        players.clear();  // Очистим введенные данные, чтобы начать ввод заново
+        players.clear();
     }
 }
 
 
+void displayMatchData(const vector<Match>& matches) {
+    if (matches.empty()) {
+        cout << "Нет данных о матчах.\n";
+        return;
+    }
+
+    int matchNumber = 1;
+    for (const auto& match : matches) {
+        // Выводим номер матча и стадию
+        cout << "\nМатч " << matchNumber++ << endl;
+        cout << "Стадия: " << match.stage << endl;
+
+        // Заголовки таблицы
+        cout << "\n| " << setw(20) << left << "Команда"
+            << "| " << setw(20) << left << "Название команды"
+            << "| " << setw(20) << left << "Футболисты"
+            << "| " << setw(20) << left << "Страна"
+            << "| " << setw(15) << left << "Голы футболистов" << " |" << endl;
+
+        cout << string(100, '-') << endl;
+
+        // Вывод команды 1
+        cout << "| " << setw(20) << left << "Команда 1"
+            << "| " << setw(20) << left << match.team1
+            << "| " << setw(20) << left << " " << "| " << setw(20) << left << " " << "| " << endl;
+
+        // Игроки команды 1
+        for (const auto& player : match.team1_players) {
+            cout << "| " << setw(20) << left << " "
+                << "| " << setw(20) << left << player.name
+                << "| " << setw(20) << left << player.name
+                << "| " << setw(20) << left << player.country
+                << "| " << setw(10) << left << player.goals
+                << " |" << endl;
+        }
+
+        // Разделитель между командами
+        cout << string(100, '-') << endl;
+
+        // Вывод команды 2
+        cout << "| " << setw(20) << left << "Команда 2"
+            << "| " << setw(20) << left << match.team2
+            << "| " << setw(20) << left << " " << "| " << setw(20) << left << " " << "| " << endl;
+
+        // Игроки команды 2
+        for (const auto& player : match.team2_players) {
+            cout << "| " << setw(20) << left << " "
+                << "| " << setw(20) << left << player.name
+                << "| " << setw(20) << left << player.name
+                << "| " << setw(20) << left << player.country
+                << "| " << setw(10) << left << player.goals
+                << " |" << endl;
+        }
+
+        // Разделитель после вывода
+        cout << string(100, '-') << endl;
+    }
+}
 
 
 // Функция для ввода данных о матче
@@ -146,116 +245,207 @@ void inputMatchData(vector<Match>& matches) {
     string stage, team1, team2;
     int goals1, goals2;
 
-    // Ввод данных о матче
-    cout << "Введите стадию матча (например, 1/8, 1/4, полуфинал, финал): ";
-    cin >> stage;
+    // Проверка на корректность стадии матча
+    while (true) {
+        cout << "Введите стадию матча (например, 1/8, 1/4, полуфинал, финал): ";
+        cin >> stage;
+
+        if (stage == "1/8" || stage == "1/4" || stage == "полуфинал" || stage == "финал" || stage == "Полуфинал" || stage == "Финал") {
+            break;
+        }
+        else {
+            cout << "Ошибка: Неверная стадия матча. Попробуйте снова.\n";
+        }
+    }
 
     vector<Player> team1_players, team2_players;
 
-    // Ввод данных для команды 1
-    cout << "\nВведите данные для команды 1:\n";  // Уведомление о начале ввода первой команды
+    cout << "\nВведите данные для команды 1:\n";
     inputTeamData(team1, goals1, team1_players);
 
-    // Ввод данных для команды 2
-    cout << "\nВведите данные для команды 2:\n";  // Уведомление о начале ввода второй команды
+    cout << "\nВведите данные для команды 2:\n";
     inputTeamData(team2, goals2, team2_players);
 
-    // Добавление матча в список
     matches.push_back(Match(stage, team1, team2, goals1, goals2));
     matches.back().team1_players = team1_players;
     matches.back().team2_players = team2_players;
 }
 
-// Функция для вывода данных о матче
-void displayMatchData(const vector<Match>& matches) {
-    for (const auto& match : matches) {
-        cout << "Стадия: " << match.stage << "\n";
-        cout << "Матч: " << match.team1 << " vs " << match.team2 << "\n";
-        cout << "Результат: " << match.goals1 << " - " << match.goals2 << "\n";
 
-        cout << "Игроки команды " << match.team1 << " (с забитыми голами):\n";
-        for (const auto& player : match.team1_players) {
-            cout << "  " << player.name << " (" << player.country << "): " << player.goals << " гол(ов)\n";
+
+// Функция для редактирования данных (добавление, удаление, изменение)
+void editMatchData(vector<Match>& matches) {
+    int choice;
+    cout << "Редактирование данных о матче:\n";
+    cout << "1. Добавить матч\n";
+    cout << "2. Удалить матч\n";
+    cout << "3. Изменить данные матча\n";
+    cout << "Введите ваш выбор: ";
+    cin >> choice;
+
+    switch (choice) {
+    case 1: {
+        inputMatchData(matches);
+        break;
+    }
+    case 2: {
+        if (matches.empty()) {
+            cout << "Нет матчей для удаления.\n";
+            break;
         }
 
-        cout << "Игроки команды " << match.team2 << " (с забитыми голами):\n";
-        for (const auto& player : match.team2_players) {
-            cout << "  " << player.name << " (" << player.country << "): " << player.goals << " гол(ов)\n";
+        cout << "Список матчей:\n";
+        displayMatchData(matches);
+
+        int match_number;
+        cout << "Введите номер матча для удаления (начиная с 1): ";
+        cin >> match_number;
+
+        if (match_number < 1 || match_number > matches.size()) {
+            cout << "Неверный номер матча.\n";
         }
+        else {
+            matches.erase(matches.begin() + match_number - 1);
+            cout << "Матч удален.\n";
+        }
+        break;
+    }
+    case 3: {
+        int match_number;
+        cout << "Введите номер матча для изменения (начиная с 1): ";
+        cin >> match_number;
 
-        cout << "\n";
+        if (match_number < 1 || match_number > matches.size()) {
+            cout << "Неверный номер матча.\n";
+        }
+        else {
+            Match& match = matches[match_number - 1];
+            cout << "Редактирование данных для матча: " << match.team1 << " vs " << match.team2 << "\n";
+            cout << "Введите новую стадию матча: ";
+            cin >> match.stage;
+
+            vector<Player> team1_players, team2_players;
+            inputTeamData(match.team1, match.goals1, team1_players);
+            inputTeamData(match.team2, match.goals2, team2_players);
+
+            match.team1_players = team1_players;
+            match.team2_players = team2_players;
+            cout << "Данные матча обновлены.\n";
+        }
+        break;
+    }
+    default:
+        cout << "Неверный выбор.\n";
     }
 }
 
-// Функция для сортировки команд по количеству забитых голов
-void sortTeamsByGoals(vector<Match>& matches) {
-    vector<pair<string, int>> team_goals;
-
-    for (const auto& match : matches) {
-        team_goals.push_back({ match.team1, match.goals1 });
-        team_goals.push_back({ match.team2, match.goals2 });
+// Функция для проверки допустимости имени файла
+bool isValidFileName(const string& filename) {
+    // Проверка на недопустимые символы
+    if (filename.empty() || filename.find_first_of("<>:\"/\\|?*") != string::npos) {
+        cout << "Ошибка: Недопустимое имя файла.\n";
+        return false;
     }
 
-    sort(team_goals.begin(), team_goals.end(), [](const pair<string, int>& a, const pair<string, int>& b) {
-        return a.second > b.second;
-        });
-
-    cout << "Команды, отсортированные по количеству забитых голов:\n";
-    for (const auto& team : team_goals) {
-        cout << "Команда: " << team.first << ", Голов: " << team.second << "\n";
+    // Проверка на слишком короткое имя файла
+    if (filename.size() < 5) {  // Минимум "a.txt" (4 символа + точка)
+        cout << "Ошибка: Имя файла слишком короткое.\n";
+        return false;
     }
-    cout << "\n";
+
+    // Проверка расширения
+    size_t dotPos = filename.rfind('.');  // Находим последнюю точку
+    if (dotPos == string::npos || dotPos == filename.size() - 1) {
+        cout << "Ошибка: Файл не имеет расширения.\n";
+        return false;
+    }
+
+    string extension = filename.substr(dotPos);  // Получаем расширение
+    if (extension != ".txt") {
+        cout << "Ошибка: Неверное расширение файла. Требуется .txt.\n";
+        return false;
+    }
+
+    return true;
 }
 
-// Функция для вывода десятки лучших бомбардиров
-void displayTopScorers(const vector<Match>& matches) {
-    vector<Player> all_players;
-
-    for (const auto& match : matches) {
-        all_players.insert(all_players.end(), match.team1_players.begin(), match.team1_players.end());
-        all_players.insert(all_players.end(), match.team2_players.begin(), match.team2_players.end());
-    }
-
-    sort(all_players.begin(), all_players.end(), [](const Player& a, const Player& b) {
-        return a.goals > b.goals;
-        });
-
-    cout << "Десятка лучших бомбардиров:\n";
-    for (int i = 0; i < 10 && i < all_players.size(); i++) {
-        cout << "Игрок: " << all_players[i].name << " (" << all_players[i].country << ") - " << all_players[i].goals << " гол(ов)\n";
-    }
-    cout << "\n";
-}
+#include <filesystem>  // Для работы с путями
 
 // Функция для сохранения данных в файл
 void saveToFile(const vector<Match>& matches) {
-    ofstream file("matches.txt");
+    string filename;
+    cout << "Введите имя файла для сохранения данных (с расширением .txt): ";
+    cin >> filename;
+
+    // Проверка на правильное расширение файла
+    while (filename.find(".txt") == string::npos) {
+        cout << "Ошибка: имя файла должно заканчиваться на .txt. Попробуйте снова: ";
+        cin >> filename;
+    }
+
+    // Проверка на существование файла
+    if (fs::exists(filename)) {
+        char choice;
+        cout << "Файл уже существует. Перезаписать? (y/n): ";
+        cin >> choice;
+        if (choice != 'y' && choice != 'Y') {
+            cout << "Сохранение отменено.\n";
+            return;
+        }
+    }
+
+    // Открытие файла для записи
+    ofstream file(filename);
     if (!file) {
         cout << "Не удалось открыть файл для записи.\n";
         return;
     }
 
+    // Запись данных в файл
     for (const auto& match : matches) {
         file << match.stage << "\n";
-        file << match.team1 << "\n";
-        file << match.team2 << "\n";
-        file << match.goals1 << " " << match.goals2 << "\n";
+        file << match.team1 << "\n";  // Первая команда
+        file << match.team2 << "\n";  // Вторая команда
+        file << match.goals1 << " " << match.goals2 << "\n";  // Количество голов
 
+        // Данные о первой команде
+        file << "Игроки команды " << match.team1 << ":\n";
         for (const auto& player : match.team1_players) {
             file << player.name << " " << player.country << " " << player.goals << "\n";
         }
 
+        // Данные о второй команде
+        file << "Игроки команды " << match.team2 << ":\n";
         for (const auto& player : match.team2_players) {
             file << player.name << " " << player.country << " " << player.goals << "\n";
         }
     }
 
-    cout << "Данные успешно сохранены в файл.\n";
+    // Печать полного пути к файлу
+    filesystem::path fullPath = filesystem::absolute(filename);
+    cout << "Данные успешно сохранены в файл: " << fullPath << "\n";
 }
+
+
 
 // Функция для загрузки данных из файла
 void loadFromFile(vector<Match>& matches) {
-    ifstream file("matches.txt");
+    string filename;
+    cout << "Введите имя файла для загрузки данных (с расширением .txt): ";
+    cin >> filename;
+
+    // Проверка на правильное расширение файла
+    while (!isValidFileName(filename)) {
+        cout << "Ошибка: имя файла должно заканчиваться на .txt. Попробуйте снова: ";
+        cin >> filename;
+    }
+
+    if (!fs::exists(filename)) {
+        cout << "Ошибка: файл не найден.\n";
+        return;
+    }
+
+    ifstream file(filename);
     if (!file) {
         cout << "Не удалось открыть файл для чтения.\n";
         return;
@@ -303,36 +493,28 @@ int main() {
 
     while (true) {
         cout << "Меню:\n";
-        cout << "1. Ввести данные о матче\n";
+        cout << "1. Редактировать данные о матче\n";
         cout << "2. Показать данные о матчах\n";
-        cout << "3. Отсортировать команды по количеству голов\n";
-        cout << "4. Показать десятку лучших бомбардиров\n";
-        cout << "5. Сохранить данные в файл\n";
-        cout << "6. Загрузить данные из файла\n";
-        cout << "7. Выход\n";
+        cout << "3. Сохранить данные в файл\n";
+        cout << "4. Загрузить данные из файла\n";
+        cout << "5. Выход\n";
         cout << "Введите ваш выбор: ";
         cin >> choice;
 
         switch (choice) {
         case 1:
-            inputMatchData(matches);
+            editMatchData(matches);
             break;
         case 2:
             displayMatchData(matches);
             break;
         case 3:
-            sortTeamsByGoals(matches);
-            break;
-        case 4:
-            displayTopScorers(matches);
-            break;
-        case 5:
             saveToFile(matches);
             break;
-        case 6:
+        case 4:
             loadFromFile(matches);
             break;
-        case 7:
+        case 5:
             cout << "Выход...\n";
             return 0;
         default:
